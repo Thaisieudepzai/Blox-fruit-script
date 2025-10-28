@@ -1,5 +1,5 @@
 -- Blox Fruit Script for Delta Executor
--- GitHub: https://github.com/yourusername/bloxfruit-script
+-- Github: https://github.com/Thaisieudepzai/Blox-fruit-script
 
 if _G.BloxFruitLoaded then return end
 _G.BloxFruitLoaded = true
@@ -21,7 +21,7 @@ local function StartAutoFarm()
     while FarmSettings.AutoFarm do
         task.wait(.1)
         pcall(function()
-            -- Tìm mục tiêu gần nhất
+            -- Tim mục tiêu gần nhất
             local target = nil
             local minDistance = math.huge
             
@@ -62,7 +62,23 @@ local function StartAutoQuest()
                 game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("StartQuest", "BanditQuest1", 1)
             elseif Level >= 15 and Level <= 30 then
                 game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("StartQuest", "MarineQuest2", 2)
-            -- Thêm các level khác...
+            elseif Level >= 30 and Level <= 60 then
+                game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("StartQuest", "SnowMountainQuest", 3)
+            end
+        end)
+    end
+end
+
+-- Auto Boss Function
+local function StartAutoBoss()
+    while FarmSettings.AutoBoss do
+        task.wait(.2)
+        pcall(function()
+            for _, boss in pairs(workspace.Enemies:GetChildren()) do
+                if string.find(boss.Name, "Boss") and boss:FindFirstChild("Humanoid") and boss.Humanoid.Health > 0 then
+                    game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = boss.HumanoidRootPart.CFrame * CFrame.new(0, 5, 10)
+                    game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("AttackButton")
+                end
             end
         end)
     end
@@ -93,12 +109,7 @@ local BossSection = BossTab:NewSection("Auto Boss")
 BossSection:NewToggle("Auto Boss", "Tự động farm boss", function(state)
     FarmSettings.AutoBoss = state
     if state then
-        coroutine.wrap(function()
-            while FarmSettings.AutoBoss do
-                task.wait(.2)
-                -- Code farm boss
-            end
-        end)()
+        coroutine.wrap(StartAutoBoss)()
     end
 end)
 
@@ -109,7 +120,9 @@ local TPSection = TPTab:NewSection("Địa điểm")
 local Locations = {
     ["Jungle"] = CFrame.new(-1612.84, 36.85, 149.13),
     ["Marine Starter"] = CFrame.new(-2689.91, 6.35, 2046.64),
-    ["Middle Town"] = CFrame.new(-655.97, 7.88, 1573.54)
+    ["Middle Town"] = CFrame.new(-655.97, 7.88, 1573.54),
+    ["Desert"] = CFrame.new(954.02, 6.35, 4269.93),
+    ["Frozen Village"] = CFrame.new(1191.96, 6.35, -1249.31)
 }
 
 for name, cf in pairs(Locations) do
@@ -122,6 +135,16 @@ end
 local MiscTab = Window:NewTab("Misc")
 local MiscSection = MiscTab:NewSection("Tiện ích")
 
+MiscSection:NewToggle("Auto Click", "Tự động click", function(state)
+    _G.AutoClick = state
+    if state then
+        while _G.AutoClick do
+            task.wait(.1)
+            game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("AttackButton")
+        end
+    end
+end)
+
 MiscSection:NewSlider("WalkSpeed", "Tốc độ di chuyển", 500, 16, function(value)
     game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = value
 end)
@@ -133,7 +156,7 @@ end)
 -- Thông báo thành công
 game:GetService("StarterGui"):SetCore("SendNotification", {
     Title = "Delta Blox Fruit",
-    Text = "Script loaded from GitHub!",
+    Text = "Script loaded successfully!",
     Duration = 5
 })
 
