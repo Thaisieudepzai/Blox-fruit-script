@@ -1,163 +1,283 @@
--- Blox Fruit Script for Delta Executor
--- Github: https://github.com/Thaisieudepzai/Blox-fruit-script
+-- Auto Hop & Lưu Trữ Ác Quỷ - Storage System
+if _G.DevilFruitStorage then return end
+_G.DevilFruitStorage = true
 
-if _G.BloxFruitLoaded then return end
-_G.BloxFruitLoaded = true
-
--- Load UI Library
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
-local Window = Library.CreateLib("Delta Blox Fruit", "DarkTheme")
+local Window = Library.CreateLib("🍎 Devil Fruit Storage", "DarkTheme")
 
--- Configuration
-local FarmSettings = {
-    AutoFarm = false,
-    AutoQuest = false,
-    AutoBoss = false,
-    AutoRaid = false
+-- Biến toàn cục
+getgenv().AutoHop = false
+getgenv().AutoCollect = false
+getgenv().AutoStore = false
+getgenv().Notify = true
+getgenv().HopDelay = 30
+
+-- Hệ thống lưu trữ
+getgenv().FruitStorage = {
+    CollectedFruits = {},
+    TotalCollected = 0,
+    LastFound = "",
+    StorageFile = "DevilFruitData.json"
 }
 
--- Auto Farm Function
-local function StartAutoFarm()
-    while FarmSettings.AutoFarm do
-        task.wait(.1)
-        pcall(function()
-            -- Tim mục tiêu gần nhất
-            local target = nil
-            local minDistance = math.huge
-            
-            for _, enemy in pairs(workspace.Enemies:GetChildren()) do
-                if enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 then
-                    local dist = (game.Players.LocalPlayer.Character.HumanoidRootPart.Position - enemy.HumanoidRootPart.Position).Magnitude
-                    if dist < minDistance then
-                        minDistance = dist
-                        target = enemy
-                    end
-                end
-            end
-            
-            if target then
-                -- Di chuyển đến mục tiêu
-                game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = target.HumanoidRootPart.CFrame * CFrame.new(0, 0, 5)
-                
-                -- Tấn công
-                game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("AttackButton")
-                
-                -- Sử dụng skill
-                for _, key in pairs({"Z", "X", "C", "V"}) do
-                    game:GetService("VirtualInputManager"):SendKeyEvent(true, key, false, game)
-                end
-            end
-        end)
-    end
-end
+-- GUI Status Window (Có thể kéo)
+local StatusGUI = Instance.new("ScreenGui")
+local StatusFrame = Instance.new("Frame")
+local StatusLabel = Instance.new("TextLabel")
+local DragFrame = Instance.new("Frame")
 
--- Auto Quest Function
-local function StartAutoQuest()
-    while FarmSettings.AutoQuest do
-        task.wait(2)
-        pcall(function()
-            local Level = game.Players.LocalPlayer.Data.Level.Value
-            
-            if Level >= 1 and Level <= 10 then
-                game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("StartQuest", "BanditQuest1", 1)
-            elseif Level >= 15 and Level <= 30 then
-                game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("StartQuest", "MarineQuest2", 2)
-            elseif Level >= 30 and Level <= 60 then
-                game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("StartQuest", "SnowMountainQuest", 3)
-            end
-        end)
-    end
-end
+-- Tạo GUI
+StatusGUI.Name = "DevilFruitStorageStatus"
+StatusGUI.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
 
--- Auto Boss Function
-local function StartAutoBoss()
-    while FarmSettings.AutoBoss do
-        task.wait(.2)
-        pcall(function()
-            for _, boss in pairs(workspace.Enemies:GetChildren()) do
-                if string.find(boss.Name, "Boss") and boss:FindFirstChild("Humanoid") and boss.Humanoid.Health > 0 then
-                    game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = boss.HumanoidRootPart.CFrame * CFrame.new(0, 5, 10)
-                    game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("AttackButton")
-                end
-            end
-        end)
-    end
-end
+StatusFrame.Name = "StatusFrame"
+StatusFrame.Parent = StatusGUI
+StatusFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+StatusFrame.BorderSizePixel = 2
+StatusFrame.BorderColor3 = Color3.fromRGB(0, 255, 0)
+StatusFrame.Position = UDim2.new(0.02, 0, 0.02, 0)
+StatusFrame.Size = UDim2.new(0, 350, 0, 150)
+StatusFrame.Active = true
+StatusFrame.Draggable = true
 
--- Main Tab
-local MainTab = Window:NewTab("Main")
-local MainSection = MainTab:NewSection("Auto Farm")
+-- Drag Frame
+DragFrame.Name = "DragFrame"
+DragFrame.Parent = StatusFrame
+DragFrame.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+DragFrame.BorderSizePixel = 0
+DragFrame.Position = UDim2.new(0, 0, 0, 0)
+DragFrame.Size = UDim2.new(1, 0, 0, 20)
 
-MainSection:NewToggle("Auto Farm Level", "Tự động farm level", function(state)
-    FarmSettings.AutoFarm = state
-    if state then
-        coroutine.wrap(StartAutoFarm)()
-    end
-end)
+StatusLabel.Name = "StatusLabel"
+StatusLabel.Parent = StatusFrame
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Position = UDim2.new(0, 10, 0, 25)
+StatusLabel.Size = UDim2.new(1, -20, 1, -30)
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.Text = "🍎 DEVIL FRUIT STORAGE\n🔴 OFFLINE\nTổng trái: 0"
+StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+StatusLabel.TextSize = 14
+StatusLabel.TextWrapped = true
+StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+StatusLabel.TextYAlignment = Enum.TextYAlignment.Top
 
-MainSection:NewToggle("Auto Quest", "Tự động nhận quest", function(state)
-    FarmSettings.AutoQuest = state
-    if state then
-        coroutine.wrap(StartAutoQuest)()
-    end
-end)
-
--- Boss Tab
-local BossTab = Window:NewTab("Boss")
-local BossSection = BossTab:NewSection("Auto Boss")
-
-BossSection:NewToggle("Auto Boss", "Tự động farm boss", function(state)
-    FarmSettings.AutoBoss = state
-    if state then
-        coroutine.wrap(StartAutoBoss)()
-    end
-end)
-
--- Teleport Tab
-local TPTab = Window:NewTab("Teleport")
-local TPSection = TPTab:NewSection("Địa điểm")
-
-local Locations = {
-    ["Jungle"] = CFrame.new(-1612.84, 36.85, 149.13),
-    ["Marine Starter"] = CFrame.new(-2689.91, 6.35, 2046.64),
-    ["Middle Town"] = CFrame.new(-655.97, 7.88, 1573.54),
-    ["Desert"] = CFrame.new(954.02, 6.35, 4269.93),
-    ["Frozen Village"] = CFrame.new(1191.96, 6.35, -1249.31)
-}
-
-for name, cf in pairs(Locations) do
-    TPSection:NewButton("TP " .. name, "Dịch chuyển đến " .. name, function()
-        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = cf
+-- Lưu dữ liệu
+local function SaveStorage()
+    pcall(function()
+        local data = {
+            CollectedFruits = getgenv().FruitStorage.CollectedFruits,
+            TotalCollected = getgenv().FruitStorage.TotalCollected,
+            LastFound = getgenv().FruitStorage.LastFound
+        }
+        writefile(getgenv().FruitStorage.StorageFile, game:GetService("HttpService"):JSONEncode(data))
     end)
 end
 
--- Misc Tab
-local MiscTab = Window:NewTab("Misc")
-local MiscSection = MiscTab:NewSection("Tiện ích")
-
-MiscSection:NewToggle("Auto Click", "Tự động click", function(state)
-    _G.AutoClick = state
-    if state then
-        while _G.AutoClick do
-            task.wait(.1)
-            game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("AttackButton")
+-- Load dữ liệu
+local function LoadStorage()
+    pcall(function()
+        if isfile(getgenv().FruitStorage.StorageFile) then
+            local data = game:GetService("HttpService"):JSONDecode(readfile(getgenv().FruitStorage.StorageFile))
+            getgenv().FruitStorage.CollectedFruits = data.CollectedFruits or {}
+            getgenv().FruitStorage.TotalCollected = data.TotalCollected or 0
+            getgenv().FruitStorage.LastFound = data.LastFound or ""
         end
+    end)
+end
+
+-- Cập nhật trạng thái
+local function UpdateStatus(message)
+    StatusLabel.Text = "🍎 DEVIL FRUIT STORAGE\n"..message.."\nTổng trái: "..getgenv().FruitStorage.TotalCollected
+    if getgenv().Notify then
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "🍎 Fruit Storage",
+            Text = message:gsub("\n", " "),
+            Duration = 5
+        })
+    end
+end
+
+-- Thêm trái vào kho
+local function AddToStorage(fruitName)
+    if not getgenv().FruitStorage.CollectedFruits[fruitName] then
+        getgenv().FruitStorage.CollectedFruits[fruitName] = 0
+    end
+    getgenv().FruitStorage.CollectedFruits[fruitName] = getgenv().FruitStorage.CollectedFruits[fruitName] + 1
+    getgenv().FruitStorage.TotalCollected = getgenv().FruitStorage.TotalCollected + 1
+    getgenv().FruitStorage.LastFound = fruitName
+    
+    SaveStorage()
+    
+    return getgenv().FruitStorage.CollectedFruits[fruitName]
+end
+
+-- Tìm trái ác quỷ
+local function FindDevilFruits()
+    pcall(function()
+        for _, item in pairs(workspace:GetChildren()) do
+            if item:FindFirstChild("Handle") and (string.find(item.Name, "Fruit") or string.find(item.Name, "Demon")) then
+                return item
+            end
+        end
+    end)
+    return nil
+end
+
+-- Lưu trữ trái ác quỷ
+local function StoreDevilFruit(fruit)
+    pcall(function()
+        -- Mở inventory
+        game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("GetFruits")
+        
+        -- Lưu thông tin trái
+        local count = AddToStorage(fruit.Name)
+        
+        UpdateStatus("✅ ĐÃ LƯU TRỮ: "..fruit.Name.."\nSố lượng: "..count.."\nTổng: "..getgenv().FruitStorage.TotalCollected)
+    end)
+end
+
+-- Auto Collect & Store
+local function StartCollecting()
+    while getgenv().AutoCollect do
+        task.wait(2)
+        local fruit = FindDevilFruits()
+        if fruit then
+            UpdateStatus("🎯 PHÁT HIỆN: "..fruit.Name.."\nĐang di chuyển...")
+            
+            -- Teleport đến trái ác quỷ
+            game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = fruit.Handle.CFrame
+            
+            -- Chờ nhặt
+            task.wait(3)
+            
+            -- Tự động lưu trữ
+            if getgenv().AutoStore then
+                StoreDevilFruit(fruit)
+            else
+                local count = AddToStorage(fruit.Name)
+                UpdateStatus("✅ ĐÃ NHẶT: "..fruit.Name.."\nSố lượng: "..count)
+            end
+        else
+            UpdateStatus("🔍 Đang tìm trái ác quỷ...\nServer: "..game.JobId:sub(1, 8))
+        end
+    end
+end
+
+-- Auto Hop
+local function StartAutoHop()
+    while getgenv().AutoHop do
+        task.wait(getgenv().HopDelay)
+        
+        if getgenv().AutoCollect then
+            local fruit = FindDevilFruits()
+            if not fruit then
+                UpdateStatus("🔄 Không tìm thấy trái\nĐang đổi server...")
+                
+                -- Hop server
+                local TeleportService = game:GetService("TeleportService")
+                local PlaceId = game.PlaceId
+                local Servers = game:GetService("HttpService"):JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..PlaceId.."/servers/Public?sortOrder=Desc&limit=100"))
+                
+                for _, server in pairs(Servers.data) do
+                    if server.playing < server.maxPlayers and server.id ~= game.JobId then
+                        TeleportService:TeleportToPlaceInstance(PlaceId, server.id)
+                        task.wait(5)
+                        break
+                    end
+                end
+            else
+                UpdateStatus("🎯 Đã tìm thấy: "..fruit.Name.."\nKhông cần đổi server")
+            end
+        end
+    end
+end
+
+-- MAIN TAB
+local MainTab = Window:NewTab("Chính")
+local AutoSection = MainTab:NewSection("Tự Động")
+
+AutoSection:NewToggle("Auto Hop Server", "Tự động đổi server", function(state)
+    getgenv().AutoHop = state
+    if state then
+        UpdateStatus("🟢 AUTO HOP: BẬT\nĐang tìm server...")
+        spawn(StartAutoHop)
+    else
+        UpdateStatus("🔴 AUTO HOP: TẮT")
     end
 end)
 
-MiscSection:NewSlider("WalkSpeed", "Tốc độ di chuyển", 500, 16, function(value)
-    game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = value
+AutoSection:NewToggle("Auto Collect Fruit", "Tự động nhặt trái", function(state)
+    getgenv().AutoCollect = state
+    if state then
+        UpdateStatus("🟢 AUTO COLLECT: BẬT\nĐang quét...")
+        spawn(StartCollecting)
+    else
+        UpdateStatus("🔴 AUTO COLLECT: TẮT")
+    end
 end)
 
-MiscSection:NewSlider("JumpPower", "Sức nhảy", 350, 50, function(value)
-    game.Players.LocalPlayer.Character.Humanoid.JumpPower = value
+AutoSection:NewToggle("Auto Lưu Trữ", "Tự động lưu vào kho", function(state)
+    getgenv().AutoStore = state
+    UpdateStatus("💾 AUTO STORE: "..(state and "BẬT" or "TẮT"))
 end)
 
--- Thông báo thành công
-game:GetService("StarterGui"):SetCore("SendNotification", {
-    Title = "Delta Blox Fruit",
-    Text = "Script loaded successfully!",
-    Duration = 5
-})
+-- STORAGE TAB
+local StorageTab = Window:NewTab("Kho Trữ")
+local StorageSection = StorageTab:NewSection("Quản Lý Kho")
 
-return Window
+StorageSection:NewButton("Xem Kho Trữ", "Hiện tất cả trái đã lưu", function()
+    local storageText = "📦 KHO TRỮ ÁC QUỶ:\n"
+    local hasFruits = false
+    
+    for fruitName, count in pairs(getgenv().FruitStorage.CollectedFruits) do
+        storageText = storageText.."• "..fruitName..": "..count.."\n"
+        hasFruits = true
+    end
+    
+    if not hasFruits then
+        storageText = storageText.."❌ Chưa có trái nào"
+    end
+    
+    storageText = storageText.."\nTỔNG: "..getgenv().FruitStorage.TotalCollected.." trái"
+    
+    UpdateStatus(storageText)
+end)
+
+StorageSection:NewButton("Xuất Dữ Liệu", "Copy data sang clipboard", function()
+    setclipboard(game:GetService("HttpService"):JSONEncode(getgenv().FruitStorage.CollectedFruits))
+    UpdateStatus("📋 Đã copy dữ liệu\nvào clipboard!")
+end)
+
+StorageSection:NewButton("Reset Kho", "Xóa toàn bộ dữ liệu", function()
+    getgenv().FruitStorage.CollectedFruits = {}
+    getgenv().FruitStorage.TotalCollected = 0
+    getgenv().FruitStorage.LastFound = ""
+    SaveStorage()
+    UpdateStatus("🗑️ Đã reset kho trữ!\nTổng trái: 0")
+end)
+
+-- SETTINGS TAB
+local SettingsTab = Window:NewTab("Cài Đặt")
+local SettingsSection = SettingsTab:NewSection("Tùy Chỉnh")
+
+SettingsSection:NewSlider("Thời gian chờ (giây)", "Thời gian chờ trước khi hop", 120, 10, function(value)
+    getgenv().HopDelay = value
+    UpdateStatus("⏰ Thời gian chờ: "..value.."s")
+end)
+
+SettingsSection:NewToggle("Thông báo", "Hiện thông báo", function(state)
+    getgenv().Notify = state
+    UpdateStatus("🔔 Thông báo: "..(state and "BẬT" or "TẮT"))
+end)
+
+-- Khởi động
+LoadStorage()
+UpdateStatus("🍎 DEVIL FRUIT STORAGE\nĐã khởi động thành công!\nKéo GUI để di chuyển\nTổng trái: "..getgenv().FruitStorage.TotalCollected)
+
+-- Auto save mỗi 5 phút
+spawn(function()
+    while task.wait(300) do
+        SaveStorage()
+        UpdateStatus("💾 Đã auto save dữ liệu\nTổng trái: "..getgenv().FruitStorage.TotalCollected)
+    end
+end)
